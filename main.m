@@ -1,0 +1,1 @@
+params.gamma        = 2.0;
