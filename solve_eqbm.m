@@ -8,8 +8,8 @@ ns              = size(s, 1);
 Phi             = glob.Phisp;
 
 %% Initialise guesses (if val.cresult has an old guess in it, use that)
-c_w0            = ones(ns, 1) * 5; % ones(ns, 1) / 2;                                             % Initial guess for c_w
-c_b0            = ones(ns, 1) * 5; % ones(ns, 1) / 2;                                             % Initial guess for c_b
+c_w0            = ones(ns, 1) * 0.5; % ones(ns, 1) / 2;                                             % Initial guess for c_w
+c_b0            = ones(ns, 1) * 0.5; % ones(ns, 1) / 2;                                             % Initial guess for c_b
 r0              = ones(ns, 1);                                              % Initial guess for r
 c1old           = Phi \ c_w0;                                               % Coefficients for c_w
 c2old           = Phi \ c_b0;                                               % Coefficients for c_b

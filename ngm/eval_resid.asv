@@ -1,0 +1,157 @@
+function [res, jac, L, Y, I, q, Kp, Bp, r] = eval_resid(c, param, glob, options)
+%% Globals 
+s               = glob.s;  
+ns              = size(s, 1);
+Phi             = glob.Phisp;
+Phiinv          = glob.Phiinv;
+Phiu            = glob.Phiu;
+Phil            = glob.Phil;
+basiscast       = glob.basiscast;
+K               = glob.s(:, 1);
+Z               = glob.s(:, 3);
+% Unpack
+c1              = c(1:ns);
+c               = Phi * c1;
+
+%% Solve equations 
+L               = solve_L_from_MRS(Z, K, c, param, glob, options);
+Y               = production(Z, K, L, param, glob, options);
+I               = Y - c;
+q               = 1 ./ cap_prod_prime(I ./ K, param, glob, options);
+Kp              = K .* (cap_prod(I ./ K, param, glob, options) + 1 - param.delta);
+mpk             = production_k(Z, K, L, param, glob, options);
+mu              = utility_c(c, L, param, glob, options);
+mu_prod         = mu .* (mpk + (1 - param.delta) * q);
+
+% Enforce bounds
+% Kp              = min(max(Kp, glob. kmin), glob.kmax);
+% Bp              = min(max(Bp, glob. bmin), glob.bmax);
+
+%% Create basis matrices for next states
+Phi_Kp          = splibas(glob.kgrid0, 0, glob.spliorder(1), Kp);           % Basis for all k'
+Phi_KZp         = dprod(glob.Phi_Z, Phi_Kp);                 % Basis for all (k', b', z')
+
+%% Compute next state objects
+PhiEmu_prod     = basiscast * mu_prod;                                     % Approximate on the same basis, take expectation and get coefficients again                    
+Emu_prodp       = Phi_KZp * PhiEmu_bprod;                               % Evaluate at (k', b', z)
+
+
+%% Compute residuals
+res                 = zeros(1 * ns, 1);
+res(1:ns)           = q .* c - utility_c_inv(glob.beta * Emu_prodp, L, param, glob, options);                     % Euler equation for workers
+
+%% Compute the jacobian if requested
+jac             = [];
+if (nargout == 2)
+    % Compute derivatives with respect to all three inputs
+    L_c             = solve_L_from_MRS_c(Z, K, c, param, glob, options);
+    
+    Y_c             = production_l(Z, K, L, param, glob, options) .* L_c; % Chain rule
+    
+    I_c             = Y_c - ones(ns, 1);
+    
+    q_c             = -q .^ 2 .* cap_prod_prime_prime(I ./ K, param, glob, options) ./ K .* I_c;
+    
+    Kp_c            = (1 ./ q) .* I_c;
+    
+    mpk_c           = production_kl(Z, K, L, param, glob, options) .* L_c;
+    
+    mu_c            = utility_cc(c, L, param, glob, options) .* ones(ns, 1) + utility_cl(c_w, L, param, glob, options) .* L_c;
+    
+    mu_prod_c       = mu_c .* (mpk + (1 - param.delta) * q) + mu .* (mpk_c + (1 - param.delta) * q_c);
+    
+    % Create derivative matrices
+    Phi_Kp_der      = splibas(glob.kgrid0, 0, glob.spliorder(1), Kp, 1);
+    Phi_KZp_Kder    = dprod(glob.Phi_Z, Phi_Kp_der);       
+    
+    Kder_prod       = spdiags(Phi_KZp_Kder * PhiEmu_prod, 0, ns, ns);
+    
+    diagKp_c        = spdiags(Kp_c, 0, ns, ns);
+    
+    next_basis      = Phi_KZp * basiscast;
+   
+
+    Emu_prodp_c     = Kder_prod * diagKp_c + ... 
+                        next_basis * spdiags(mu_prod_c, 0, ns, ns);
+    Emu_bprodp_c_b  = Kder_bprod * diagKp_c_b + Bder_bprod * diagBp_c_b + ...
+                        next_basis * spdiags(mu_bprod_c_b, 0, ns, ns);
+    Emu_bprodp_r    = Kder_bprod * diagKp_r + Bder_bprod * diagBp_r + ...
+                        next_basis * spdiags(mu_bprod_r, 0, ns, ns);
+                    
+    Emu_bp_c_w      = Kder_b * diagKp_c_w + Bder_b * diagBp_c_w + ...
+                        next_basis * spdiags(mu_b_c_w, 0, ns, ns);
+    Emu_bp_c_b      = Kder_b * diagKp_c_b + Bder_b * diagBp_c_b + ...
+                        next_basis * spdiags(mu_b_c_b, 0, ns, ns);
+    Emu_bp_r        = Kder_b * diagKp_r + Bder_b * diagBp_r + ...
+                        next_basis * spdiags(mu_b_r, 0, ns, ns);
+    
+    Emu_wp_c_w      = Kder_w * diagKp_c_w + Bder_w * diagBp_c_w + ...
+                        next_basis * spdiags(mu_w_c_w, 0, ns, ns);
+    Emu_wp_c_b      = Kder_w * diagKp_c_b + Bder_w * diagBp_c_b + ...
+                        next_basis * spdiags(mu_w_c_b, 0, ns, ns);
+    Emu_wp_r        = Kder_w * diagKp_r + Bder_w * diagBp_r + ...
+                        next_basis * spdiags(mu_w_r, 0, ns, ns);
+
+    % Calculate the blocks of the jacobian
+%     res1_c_w        = spdiags(mu_w_c_w, 0, ns, ns) - glob.beta_w * ...
+%                     (spdiags(r, 0, ns, ns) * Emu_wp_c_w);
+%     res1_c_b        = spdiags(mu_w_c_b, 0, ns, ns) - glob.beta_w * ...
+%                     (spdiags(r, 0, ns, ns) * Emu_wp_c_b);
+%     res1_r          = spdiags(mu_w_r, 0, ns, ns) - glob.beta_w * ...
+%                     (spdiags(r, 0, ns, ns) * Emu_wp_r + spdiags(Emu_wp, 0, ns, ns));
+%                 
+%     res2_c_w        = spdiags(mu_b_c_w, 0, ns, ns) - glob.beta_b * ...
+%                     (spdiags(r, 0, ns, ns) * Emu_bp_c_w);
+%     res2_c_b        = spdiags(mu_b_c_b, 0, ns, ns) - glob.beta_b * ...
+%                     (spdiags(r, 0, ns, ns) * Emu_bp_c_b);
+%     res2_r          = spdiags(mu_b_r, 0, ns, ns) - glob.beta_b * ...
+%                     (spdiags(r, 0, ns, ns) * Emu_bp_r + spdiags(Emu_bp, 0, ns, ns));
+%                 
+%     res3_c_w        = Emu_bprodp_c_w - (spdiags(q .* r, 0, ns, ns) * Emu_bp_c_w + ...
+%                         spdiags(Emu_bp .* r, 0, ns, ns) * spdiags(q_c_w, 0, ns, ns));
+%     res3_c_b        = Emu_bprodp_c_b - (spdiags(q .* r, 0, ns, ns) * Emu_bp_c_b + ...
+%                         spdiags(Emu_bp .* r, 0, ns, ns) * spdiags(q_c_b, 0, ns, ns));
+%     res3_r          = Emu_bprodp_r - (spdiags(q .* r, 0, ns, ns) * Emu_bp_r + ...
+%                         spdiags(Emu_bp .* r, 0, ns, ns) * spdiags(q_r, 0, ns, ns) + ...
+%                         spdiags(Emu_bp .* q, 0, ns, ns));
+
+    mu_prime1       = spdiags(utility_c_inv_prime(glob.beta_w * r .* Emu_wp, L, param, glob, options), 0, ns, ns);
+    mu_prime2       = spdiags(utility_c_inv_prime(glob.beta_b * r .* Emu_bp, zeros(ns, 1), param, glob, options), 0, ns, ns);
+    mu_prime31      = spdiags(utility_c_inv_prime(Emu_bprodp, zeros(ns, 1), param, glob, options), 0, ns, ns);
+    mu_prime32      = spdiags(utility_c_inv_prime(Emu_bp .* q .* r, zeros(ns, 1), param, glob, options), 0, ns, ns);
+
+    res1_c_w        = speye(ns, ns) - mu_prime1 * glob.beta_w * ...
+                    (spdiags(r, 0, ns, ns) * Emu_wp_c_w);
+    res1_c_b        =  - mu_prime1 * glob.beta_w * ...
+                    (spdiags(r, 0, ns, ns) * Emu_wp_c_b);
+    res1_r          =  - mu_prime1 * glob.beta_w * ...
+                    (spdiags(r, 0, ns, ns) * Emu_wp_r + spdiags(Emu_wp, 0, ns, ns));
+                
+    res2_c_w        =  - mu_prime2 * glob.beta_b * ...
+                    (spdiags(r, 0, ns, ns) * Emu_bp_c_w);
+    res2_c_b        = speye(ns, ns) - mu_prime2 * glob.beta_b * ...
+                    (spdiags(r, 0, ns, ns) * Emu_bp_c_b);
+    res2_r          =  - mu_prime2 * glob.beta_b * ...
+                    (spdiags(r, 0, ns, ns) * Emu_bp_r + spdiags(Emu_bp, 0, ns, ns));
+                
+    res3_c_w        = mu_prime31 * Emu_bprodp_c_w - mu_prime32 * (spdiags(q .* r, 0, ns, ns) * Emu_bp_c_w + ...
+                        spdiags(Emu_bp .* r, 0, ns, ns) * spdiags(q_c_w, 0, ns, ns));
+    res3_c_b        = mu_prime31 * Emu_bprodp_c_b - mu_prime32 * (spdiags(q .* r, 0, ns, ns) * Emu_bp_c_b + ...
+                        spdiags(Emu_bp .* r, 0, ns, ns) * spdiags(q_c_b, 0, ns, ns));
+    res3_r          = mu_prime31 * Emu_bprodp_r - mu_prime32 * (spdiags(q .* r, 0, ns, ns) * Emu_bp_r + ...
+                        spdiags(Emu_bp .* r, 0, ns, ns) * spdiags(q_r, 0, ns, ns) + ...
+                        spdiags(Emu_bp .* q, 0, ns, ns));
+    
+    % Put together the jacobian
+    jac                             = zeros(3 * ns, 3 * ns);
+    jac(1:ns, 1:ns)                 = res1_c_w * Phi;
+    jac(1:ns, ns+1:2*ns)            = res1_c_b * Phi;
+    jac(1:ns, 2*ns+1:3*ns)          = res1_r * Phi;
+    jac(ns+1:2*ns, 1:ns)            = res2_c_w * Phi;
+    jac(ns+1:2*ns, ns+1:2*ns)       = res2_c_b * Phi;
+    jac(ns+1:2*ns, 2*ns+1:3*ns)     = res2_r * Phi;
+    jac(2*ns+1:3*ns, 1:ns)          = res3_c_w * Phi;
+    jac(2*ns+1:3*ns, ns+1:2*ns)     = res3_c_b * Phi;
+    jac(2*ns+1:3*ns, 2*ns+1:3*ns)   = res3_r * Phi;
+end
+
