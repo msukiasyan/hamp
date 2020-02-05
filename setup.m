@@ -59,6 +59,10 @@ glob.Phi_Z      = splibas(zgrid0, 0, glob.spliorder(3), s(:, 3));           % Us
 Phi_K           = splibas(kgrid0, 0, glob.spliorder(1), s(:, 1));
 Phi_B           = splibas(bgrid0, 0, glob.spliorder(2), s(:, 2));
 glob.Phi        = dprod(glob.Phi_Z, dprod(Phi_B, Phi_K));                   % Used in Newton updating of c
+glob.Phisp      = sparse(glob.Phi);                                         % Create a sparse version (doesn't seem too helpful)
+[glob.Phiu, glob.Phil]  = lu(glob.Phisp);
+glob.Phiinv     = inv(glob.Phi);
+glob.basiscast  = glob.Phiinv * glob.Emat * glob.Phiinv;
 
 %% Declare additional global variables
 glob.kgrid0     = kgrid0;
