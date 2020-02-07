@@ -35,6 +35,10 @@ Ne              = glob.Ne1;
 pvec            = nodeunif(Ne, glob.plb, 1 - glob.plb);                     % Make an equi-spaced grid in probabilities
 e               = norminv(pvec, 0, glob.sige);                              % Turn to grid on e
 w               = normpdf(e, 0, glob.sige);                                 % Invert normal for shocks
+if (abs(glob.sige) < 1e-15)
+    e = zeros(Ne, 1);
+    w = ones(Ne, 1);
+end
 w               = w / sum(w);                                               % Compute pdf of shocks
 iNe             = ones(Ne, 1);                           
 iNs             = ones(Ns, 1);

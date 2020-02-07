@@ -12,10 +12,14 @@ Z               = glob.s(:, 2);
 % Unpack
 c1              = c(1:ns);
 c               = Phi * c1;
-
 c               = max(c, 0);
 
+% mu              = Phi * c1;
+% mu              = max(mu, 0);
+
 %% Solve equations 
+% c               = utility_c_inv(mu, zeros(ns, 1), param, glob, options);
+
 L               = solve_L_from_MRS(Z, K, c, param, glob, options);
 Y               = production(Z, K, L, param, glob, options);
 I               = Y - c;
@@ -27,7 +31,6 @@ mu_prod         = mu .* (mpk + (1 - param.delta) * q);
 
 % Enforce bounds
 % Kp              = min(max(Kp, glob. kmin), glob.kmax);
-% Bp              = min(max(Bp, glob. bmin), glob.bmax);
 
 %% Create basis matrices for next states
 Phi_Kp          = splibas(glob.kgrid0, 0, glob.spliorder(1), Kp);           % Basis for all k'
@@ -37,10 +40,28 @@ Phi_KZp         = dprod(glob.Phi_Z, Phi_Kp);                 % Basis for all (k'
 PhiEmu_prod     = basiscast * mu_prod;                                     % Approximate on the same basis, take expectation and get coefficients again                    
 Emu_prodp       = Phi_KZp * PhiEmu_prod;                               % Evaluate at (k', b', z)
 
+%% Tomorrow values
+% cp              = Phi_KZp * c1;
+% cp              = max(cp, 0);
+% 
+% % mup             = Phi_KZp * c1;
+% % mup             = max(mup, 0);
+% % cp              = utility_c_inv(mup, zeros(ns, 1), param, glob, options);
+% 
+% Lp              = solve_L_from_MRS(Z, Kp, cp, param, glob, options);
+% Yp              = production(Z, Kp, Lp, param, glob, options);
+% Ip              = Yp - cp;
+% qp              = 1 ./ cap_prod_prime(Ip ./ Kp, param, glob, options);
+% mpkp            = production_k(Z, Kp, Lp, param, glob, options);
+% % mup             = utility_c(cp, Lp, param, glob, options);
+% mu_prodp        = mup .* (mpkp + (1 - param.delta) * qp);
+% 
+% % Emu_prodp       = mu_prodp;
+
 
 %% Compute residuals
 res                 = zeros(1 * ns, 1);
-res(1:ns)           = q .* c - utility_c_inv(glob.beta * Emu_prodp, L, param, glob, options);                     % Euler equation for workers
+res(1:ns)           = ((q .* c)) - (utility_c_inv(glob.beta * Emu_prodp, L, param, glob, options));                     % Euler equation for workers
 
 %% Compute the jacobian if requested
 jac             = [];

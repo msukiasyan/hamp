@@ -8,12 +8,45 @@ ns              = size(s, 1);
 Phi             = glob.Phisp;
 
 %% Initialise guesses (if val.cresult has an old guess in it, use that)
-c_w0            = ones(ns, 1) * 0.5; % ones(ns, 1) / 2;                                             % Initial guess for c_w
-c_b0            = ones(ns, 1) * 0.5; % ones(ns, 1) / 2;                                             % Initial guess for c_b
-r0              = ones(ns, 1);                                              % Initial guess for r
-c1old           = Phi \ c_w0;                                               % Coefficients for c_w
-c2old           = Phi \ c_b0;                                               % Coefficients for c_b
-c3old           = Phi \ r0;                                               % Coefficients for c_b
+% c_w0            = ones(ns, 1) * 0.5; % ones(ns, 1) / 2;                                             % Initial guess for c_w
+% c_b0            = ones(ns, 1) * 0.5; % ones(ns, 1) / 2;                                             % Initial guess for c_b
+% r0              = ones(ns, 1);                                              % Initial guess for r
+% c1old           = Phi \ c_w0;                                               % Coefficients for c_w
+% c2old           = Phi \ c_b0;                                               % Coefficients for c_b
+% c3old           = Phi \ r0;                                               % Coefficients for c_b
+
+load('init_guess.mat', 'fres');
+% Nf              = size(fres, 1);
+% k0              = kron(ones(2, 1), fres(:, 1));
+% b0              = kron(ones(2, 1), fres(:, 2));
+% c_w0            = kron(ones(2, 1), fres(:, 3));
+% c_b0            = kron(ones(2, 1), fres(:, 4));
+% r0              = kron(ones(2, 1), fres(:, 5));
+% z0              = [ones(Nf, 1) * 0.9; ones(Nf, 1) * 1.1];
+% 
+% k0              = [k0; s(:, 1)];
+% b0              = [b0; s(:, 2)];
+% z0              = [z0; s(:, 3)];
+% c_w0            = [c_w0; ones(ns, 1) * 0.5];
+% c_b0            = [c_b0; ones(ns, 1) * 0.01];
+% r0              = [r0; ones(ns, 1) * 1.0];
+% c_w0            = max(c_w0, 0.2);
+% c_b0            = max(c_b0, 0.2);
+
+fres            = fres(fres(:, 2) > 0, :);
+Nf              = size(fres, 1);
+
+k0              = kron(ones(glob.Nz, 1), fres(:, 1));
+b0              = kron(ones(glob.Nz, 1), fres(:, 2));
+c_w0            = kron(ones(glob.Nz, 1), fres(:, 3));
+c_b0            = kron(ones(glob.Nz, 1), fres(:, 4));
+r0              = kron(ones(glob.Nz, 1), fres(:, 5));
+z0              = kron(glob.zgrid, ones(Nf, 1));
+
+c1old           = funfitxy(glob.fspace, [k0, b0 ./ k0, z0], c_w0);
+c2old           = funfitxy(glob.fspace, [k0, b0 ./ k0, z0], c_b0);
+c3old           = funfitxy(glob.fspace, [k0, b0 ./ k0, z0], r0);
+
 if isfield(options, 'cresult') && ~isempty(options.cresult)
     c1old       = options.cresult(1:ns);
     c2old       = options.cresult(ns + 1:2 * ns);
@@ -34,7 +67,7 @@ for citer = 1:options.Nnewt
     % Compute values
     [res, jac]      = eval_resid(cold, param, glob, options);               % Evaluate residuals, get the jacobian
     % Update c 
-    c               = cold - 0.01 * (jac \ res);                                       % New c
+    c               = cold - (jac \ res);                                       % New c
     % Compute distances and update
     dc              = norm(c - cold) / norm(cold);
     cold            = c;

@@ -7,7 +7,7 @@ ns              = size(s, 1);
 Phi             = glob.Phisp;
 
 %% Initialise guesses (if val.cresult has an old guess in it, use that)
-c_0             = ones(ns, 1) * 0.5;                                             % Initial guess for c_w                                            % Initial guess for c_b
+c_0             = (0.6 * s(:, 1) .^ 0.6); % s(:, 1) * 3 * ((1 - glob.beta) / glob.beta);%                                  % Initial guess for c_w                                            % Initial guess for c_b
 c1old           = Phi \ c_0;                                               % Coefficients for c_w
 
 if isfield(options, 'cresult') && ~isempty(options.cresult)

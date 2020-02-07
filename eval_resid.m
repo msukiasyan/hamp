@@ -8,7 +8,7 @@ Phiu            = glob.Phiu;
 Phil            = glob.Phil;
 basiscast       = glob.basiscast;
 K               = glob.s(:, 1);
-B               = glob.s(:, 2);
+B               = glob.s(:, 1) .* glob.s(:, 2);
 Z               = glob.s(:, 3);
 % Unpack
 c1              = c(1:ns);
@@ -17,6 +17,9 @@ c3              = c(2 * ns + 1:end);
 c_w             = Phi * c1;
 c_b             = Phi * c2;
 r               = Phi * c3;
+
+% c_w(c_w < 1e-5)    = 1e-5;
+% c_b(c_b < 1e-5)    = 1e-5;
 
 %% Solve equations 
 L               = solve_L_from_MRS(Z, K, c_w, param, glob, options);
@@ -35,8 +38,10 @@ mu_bprod        = mu_b .* (mpk + (1 - param.delta) * q);
 % Bp              = min(max(Bp, glob. bmin), glob.bmax);
 
 %% Create basis matrices for next states
+ratiop          = Bp ./ Kp;
+
 Phi_Kp          = splibas(glob.kgrid0, 0, glob.spliorder(1), Kp);           % Basis for all k'
-Phi_Bp          = splibas(glob.bgrid0, 0, glob.spliorder(2), Bp);           % Basis for all b'
+Phi_Bp          = splibas(glob.bgrid0, 0, glob.spliorder(2), ratiop);           % Basis for all b'
 Phi_KBZp        = dprod(glob.Phi_Z, dprod(Phi_Bp, Phi_Kp));                 % Basis for all (k', b', z')
 
 %% Compute next state objects
@@ -50,8 +55,8 @@ Emu_wp          = Phi_KBZp * PhiEmu_w;                                   % Evalu
 
 %% Compute residuals
 res                 = zeros(3 * ns, 1);
-res(1:ns)           = c_w - utility_c_inv(glob.beta_w * r .* Emu_wp, L, param, glob, options);                     % Euler equation for workers
-res(ns+1:2*ns)      = c_b - utility_c_inv(glob.beta_b * r .* Emu_bp, zeros(ns, 1), param, glob, options);                     % Euler equation for bankers
+res(1:ns)           = (c_w) - utility_c_inv(glob.beta_w * r .* Emu_wp, L, param, glob, options);                     % Euler equation for workers
+res(ns+1:2*ns)      = (c_b) - utility_c_inv(glob.beta_b * r .* Emu_bp, zeros(ns, 1), param, glob, options);                     % Euler equation for bankers
 res(2*ns+1:3*ns)    = utility_c_inv(Emu_bprodp, zeros(ns, 1), param, glob, options) - ...
                             utility_c_inv(Emu_bp .* q .* r, zeros(ns, 1), param, glob, options);                        % Arbitrage
 
@@ -87,6 +92,12 @@ if (nargout == 2)
     Bp_c_b          = r .* (ones(ns, 1) + q_c_b .* Kp + q .* Kp_c_b - mpk_c_b .* K - (1 - param.delta) * q_c_b .* K);
     Bp_r            = ones(ns, 1) .* (B + c_b + q .* Kp - mpk .* K - (1 - param.delta) * q .* K) + ...
                         r .* (q_r .* Kp + q .* Kp_r - mpk_r .* K - (1 - param.delta) * q_r .* K);
+                    
+    %-------------
+    Bp_c_w          = Bp_c_w ./ Kp - Bp ./ (Kp .^2) .* Kp_c_w;
+    Bp_c_b          = Bp_c_b ./ Kp - Bp ./ (Kp .^2) .* Kp_c_b;
+    Bp_r            = Bp_r ./ Kp - Bp ./ (Kp .^2) .* Kp_r;
+    %-------------
     
     mu_w_c_w        = utility_cc(c_w, L, param, glob, options) .* ones(ns, 1) + utility_cl(c_w, L, param, glob, options) .* L_c_w;
     mu_w_c_b        = utility_cl(c_w, L, param, glob, options) .* L_c_b;
@@ -102,7 +113,7 @@ if (nargout == 2)
     
     % Create derivative matrices
     Phi_Kp_der      = splibas(glob.kgrid0, 0, glob.spliorder(1), Kp, 1);
-    Phi_Bp_der      = splibas(glob.bgrid0, 0, glob.spliorder(2), Bp, 1);
+    Phi_Bp_der      = splibas(glob.bgrid0, 0, glob.spliorder(2), ratiop, 1);
     Phi_KBZp_Kder   = dprod(glob.Phi_Z, dprod(Phi_Bp, Phi_Kp_der));      
     Phi_KBZp_Bder   = dprod(glob.Phi_Z, dprod(Phi_Bp_der, Phi_Kp));  
     
