@@ -7,73 +7,53 @@ bgrid           = glob.kgrid;
 ns              = size(s, 1);
 Phi             = glob.Phisp;
 
-%% Initialise guesses (if val.cresult has an old guess in it, use that)
-% c_w0            = ones(ns, 1) * 0.5; % ones(ns, 1) / 2;                                             % Initial guess for c_w
-% c_b0            = ones(ns, 1) * 0.5; % ones(ns, 1) / 2;                                             % Initial guess for c_b
-% r0              = ones(ns, 1);                                              % Initial guess for r
-% c1old           = Phi \ c_w0;                                               % Coefficients for c_w
-% c2old           = Phi \ c_b0;                                               % Coefficients for c_b
-% c3old           = Phi \ r0;                                               % Coefficients for c_b
+%% Initialise guesses
+switch options.guess
+    case 'file'
+        load('init_guess.mat', 'fres');
 
-load('init_guess.mat', 'fres');
-% Nf              = size(fres, 1);
-% k0              = kron(ones(2, 1), fres(:, 1));
-% b0              = kron(ones(2, 1), fres(:, 2));
-% c_w0            = kron(ones(2, 1), fres(:, 3));
-% c_b0            = kron(ones(2, 1), fres(:, 4));
-% r0              = kron(ones(2, 1), fres(:, 5));
-% z0              = [ones(Nf, 1) * 0.9; ones(Nf, 1) * 1.1];
-% 
-% k0              = [k0; s(:, 1)];
-% b0              = [b0; s(:, 2)];
-% z0              = [z0; s(:, 3)];
-% c_w0            = [c_w0; ones(ns, 1) * 0.5];
-% c_b0            = [c_b0; ones(ns, 1) * 0.01];
-% r0              = [r0; ones(ns, 1) * 1.0];
-% c_w0            = max(c_w0, 0.2);
-% c_b0            = max(c_b0, 0.2);
+        fres            = fres(fres(:, 2) > 0, :);
+        Nf              = size(fres, 1);
 
-fres            = fres(fres(:, 2) > 0, :);
-Nf              = size(fres, 1);
+        k0              = kron(ones(glob.Nz, 1), fres(:, 1));
+        b0              = kron(ones(glob.Nz, 1), fres(:, 2));
+        c_w0            = kron(ones(glob.Nz, 1), fres(:, 3));
+        c_b0            = kron(ones(glob.Nz, 1), fres(:, 4));
+        r0              = kron(ones(glob.Nz, 1), fres(:, 5));
+        z0              = kron(glob.zgrid, ones(Nf, 1));
 
-k0              = kron(ones(glob.Nz, 1), fres(:, 1));
-b0              = kron(ones(glob.Nz, 1), fres(:, 2));
-c_w0            = kron(ones(glob.Nz, 1), fres(:, 3));
-c_b0            = kron(ones(glob.Nz, 1), fres(:, 4));
-r0              = kron(ones(glob.Nz, 1), fres(:, 5));
-z0              = kron(glob.zgrid, ones(Nf, 1));
-
-c1old           = funfitxy(glob.fspace, [k0, b0 ./ k0, z0], c_w0);
-c2old           = funfitxy(glob.fspace, [k0, b0 ./ k0, z0], c_b0);
-c3old           = funfitxy(glob.fspace, [k0, b0 ./ k0, z0], r0);
-
-if isfield(options, 'cresult') && ~isempty(options.cresult)
-    c1old       = options.cresult(1:ns);
-    c2old       = options.cresult(ns + 1:2 * ns);
-    c3old       = options.cresult(2 * ns + 1:end);
+        c1old           = funfitxy(glob.fspace, [k0, b0 ./ k0, z0], c_w0);
+        c2old           = funfitxy(glob.fspace, [k0, b0 ./ k0, z0], c_b0);
+        c3old           = funfitxy(glob.fspace, [k0, b0 ./ k0, z0], r0);
+        cold            = [c1old; c2old; c3old];
+    case 'saved'
+        load('cresult.mat', 'cold');
+    otherwise
+        c_w0            = ones(ns, 1) * 0.5;                                % Initial guess for c_w
+        c_b0            = ones(ns, 1) * 0.5;                                % Initial guess for c_b
+        r0              = ones(ns, 1);                                      % Initial guess for r
+        c1old           = Phi \ c_w0;                                       % Coefficients for c_w
+        c2old           = Phi \ c_b0;                                       % Coefficients for c_b
+        c3old           = Phi \ r0;                                         % Coefficients for c_b
+        cold            = [c1old; c2old; c3old];
 end
-cold            = [c1old; c2old; c3old];
+
 totaltic        = tic;
 
-%% Newton iterations
-% c               = fsolve(@(x) eval_resid(x, param, glob, options), cold, optimoptions('fsolve', 'Display', 'iter', 'Algorithm', 'levenberg-marquardt', 'SpecifyObjectiveGradient',true));
-% return
-
+%% Backward iterations
 if strcmp(options.print, 'Y')
-    fprintf('~~~~~ Newton iterations ~~~~~\n');
+    fprintf('~~~~~ Backward iterations ~~~~~\n');
 end
 eq.flag.cconv   = false;
-for citer = 1:options.Nnewt
-    % Compute values
-    [res, jac]      = eval_resid(cold, param, glob, options);               % Evaluate residuals, get the jacobian
-    % Update c 
-    c               = cold - (jac \ res);                                       % New c
+for citer = 1:options.Nbackw
+    % Compute current period equilibrium given the future policies
+    c               = fsolve(@(x) eval_resid_backward(cold, x, param, glob, options), cold, options.optim);
     % Compute distances and update
     dc              = norm(c - cold) / norm(cold);
     cold            = c;
     if strcmp(options.print, 'Y')
         fprintf('%i\tdc = %1.2e\tTime: %3.2f\n', citer, dc, toc(totaltic));
-        fprintf('norm: %3.2f\n', norm(res));
+        fprintf('norm: %3.2e\n', norm(eval_resid(cold, param, glob, options)));
     end
     % Check convergence
     if (dc < options.tolc)
@@ -83,8 +63,40 @@ for citer = 1:options.Nnewt
         break
     end
 end
+% Try to improve solving the whole system directly
+cold        = fsolve(@(x) eval_resid(x, param, glob, options), cold, options.optim);
+
+save('cresult.mat', 'cold');
+
 return;
-% %% Solve again on a finder grid for k
+
+% if strcmp(options.print, 'Y')
+%     fprintf('~~~~~ Newton iterations ~~~~~\n');
+% end
+% eq.flag.cconv   = false;
+% for citer = 1:options.Nnewt
+%     % Compute values
+%     [res, jac]      = eval_resid(cold, param, glob, options);               % Evaluate residuals, get the jacobian
+%     % Update c 
+%     c               = cold - (jac \ res);                                       % New c
+%     % Compute distances and update
+%     dc              = norm(c - cold) / norm(cold);
+%     cold            = c;
+%     if strcmp(options.print, 'Y')
+%         fprintf('%i\tdc = %1.2e\tTime: %3.2f\n', citer, dc, toc(totaltic));
+%         fprintf('norm: %3.2e\n', norm(res));
+%     end
+%     % Check convergence
+%     if (dc < options.tolc)
+%         eq.flag.cconv = true;
+%     end
+%     if eq.flag.cconv
+%         break
+%     end
+% end
+% return;
+
+%% Solve again on a finder grid for k
 % glob.Phi_Z      = glob.Phi_Zf; 
 % v               = solve_valfunc(c,sf,P,param,glob,options,1);           % Solve using the obtained approximation but on many points
 % 
