@@ -1,4 +1,4 @@
-function [res, jac, L, Y, I, q, Kp, Bp, r] = eval_resid(c, param, glob, options)
+function [res, jac, c_w, c_b, L, Y, I, q, Kp, Bp, r] = eval_resid(c, param, glob, options)
 %% Globals 
 s               = glob.s;  
 ns              = size(s, 1);
@@ -8,7 +8,7 @@ Phiu            = glob.Phiu;
 Phil            = glob.Phil;
 basiscast       = glob.basiscast;
 K               = glob.s(:, 1);
-B               = glob.s(:, 1) .* glob.s(:, 2);
+B               = min(glob.s(:, 1) .* glob.s(:, 2) - glob.transf, glob.bound_pol * glob.s(:, 1));
 Z               = glob.s(:, 3);
 % Unpack
 c1              = c(1:ns);
@@ -30,7 +30,7 @@ Kp              = K .* (cap_prod(I ./ K, param, glob, options) + 1 - param.delta
 mpk             = production_k(Z, K, L, param, glob, options);
 Bp              = r .* (B + c_b + q .* Kp - mpk .* K - (1 - param.delta) * q .* K);
 mu_w            = utility_c(c_w, L, param, glob, options);
-mu_b            = utility_c(c_b, L, param, glob, options);
+mu_b            = utility_c(c_b, 0, param, glob, options);
 mu_bprod        = mu_b .* (mpk + (1 - param.delta) * q);
 
 % Enforce bounds
@@ -103,9 +103,9 @@ if (nargout == 2)
     mu_w_c_b        = utility_cl(c_w, L, param, glob, options) .* L_c_b;
     mu_w_r          = utility_cl(c_w, L, param, glob, options) .* L_r;
     
-    mu_b_c_w        = utility_cl(c_b, L, param, glob, options) .* L_c_w;
-    mu_b_c_b        = utility_cc(c_b, L, param, glob, options) .* ones(ns, 1) + utility_cl(c_b, L, param, glob, options) .* L_c_b;
-    mu_b_r          = utility_cl(c_b, L, param, glob, options) .* L_r;
+    mu_b_c_w        = zeros(ns, 1);
+    mu_b_c_b        = utility_cc(c_b, 0, param, glob, options) .* ones(ns, 1);
+    mu_b_r          = zeros(ns, 1);
     
     mu_bprod_c_w    = mu_b_c_w .* (mpk + (1 - param.delta) * q) + mu_b .* (mpk_c_w + (1 - param.delta) * q_c_w);
     mu_bprod_c_b    = mu_b_c_b .* (mpk + (1 - param.delta) * q) + mu_b .* (mpk_c_b + (1 - param.delta) * q_c_b);

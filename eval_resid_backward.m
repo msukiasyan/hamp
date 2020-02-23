@@ -1,4 +1,4 @@
-function [res, jac, L, Y, I, q, Kp, Bp, r] = eval_resid_backward(c, c_0, param, glob, options)
+function [res, jac, c_w, c_b, L, Y, I, q, Kp, Bp, r] = eval_resid_backward(c, c_0, param, glob, options)
 %% Globals 
 s               = glob.s;  
 ns              = size(s, 1);
@@ -8,7 +8,7 @@ Phiu            = glob.Phiu;
 Phil            = glob.Phil;
 basiscast       = glob.basiscast;
 K               = glob.s(:, 1);
-B               = glob.s(:, 1) .* glob.s(:, 2);
+B               = min(glob.s(:, 1) .* glob.s(:, 2) - glob.transf, glob.bound_pol * glob.s(:, 1));
 Z               = glob.s(:, 3);
 % Unpack
 c1              = c(1:ns);
@@ -42,8 +42,8 @@ I1              = Y1 - c_b1 - c_w1;
 q1              = 1 ./ cap_prod_prime(I1 ./ K, param, glob, options);
 mpk1            = production_k(Z, K, L1, param, glob, options);
 mu_w1           = utility_c(c_w1, L1, param, glob, options);
-mu_b1           = utility_c(c_b1, L1, param, glob, options);
-mu_bprod1       = mu_b1 .* (mpk1 + (1 - param.delta) * q);
+mu_b1           = utility_c(c_b1, 0, param, glob, options);
+mu_bprod1       = mu_b1 .* (mpk1 + (1 - param.delta) * q1);
 
 % Enforce bounds
 % Kp              = min(max(Kp, glob. kmin), glob.kmax);

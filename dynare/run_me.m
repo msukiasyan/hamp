@@ -10,7 +10,7 @@ kmax = 1.5;
 Nk = 15;
 kgrid = kmin + (linspace(0, 1, Nk) .^ 2) * (kmax - kmin);
 
-kgrid = [kgrid, linspace(38, 40, 5)];
+kgrid = [kgrid, linspace(53, 55, 5)];
 Nk  = Nk + 5;
 
 res = cell(Nb * Nk, 1);
