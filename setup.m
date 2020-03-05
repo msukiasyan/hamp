@@ -55,14 +55,14 @@ glob.Emat       = Ikronw * Phi;                                             % Ex
 glob.Ematsp     = sparse(glob.Emat);                                        % Create a sparse version
 
 %% Construct fine grid for histogram
-% kgridf          = nodeunif(glob.nf(1), glob.kmin .^ glob.curv(1), glob.kmax .^ glob.curv(1)) .^ (1/glob.curv(1));
-% bgridf          = nodeunif(glob.nf(2), glob.bmin .^ glob.curv(2), glob.bmax .^ glob.curv(2)) .^ (1/glob.curv(2));
+kgridf2         = nodeunif(glob.nf(1), glob.kmin .^ glob.curv(1), glob.kmax .^ glob.curv(1)) .^ (1/glob.curv(1));
+bgridf2         = nodeunif(glob.nf(2), glob.bmin .^ glob.curv(2), glob.bmax .^ glob.curv(2)) .^ (1/glob.curv(2));
 kgridf          = kgrid;
 bgridf          = bgrid;
 Nkf             = size(kgridf, 1);
 Nbf             = size(bgridf, 1);
 
-% zgridf          = nodeunif(glob.nf(3), min(zgrid), max(zgrid));      
+zgridf2         = nodeunif(glob.nf(3), min(zgrid), max(zgrid));      
 zgridf          = zgrid;
 Nzf             = size(zgridf, 1);
 sf              = gridmake(kgridf, bgridf, zgridf);
@@ -121,5 +121,9 @@ glob.Nb         = Nb;
 glob.fspace     = fspace;
 glob.s          = s;
 glob.Ns         = Ns;
+glob.kgridf2    = kgridf2;
+glob.bgridf2    = bgridf2;
+glob.zgridf2    = zgridf2;
+glob.sf2        = gridmake(kgridf2, bgridf2, zgridf2);
 %__________________________________________________________________________
 end
