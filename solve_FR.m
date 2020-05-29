@@ -7,7 +7,7 @@ bgrid           = glob.bgrid;
 ns              = size(s, 1);
 Phi             = glob.Phisp;
 
-%% Initialise guesses
+%% Initialise guesses 
 switch options.guess_FR
     case 'saved'
         load(['FR_cresult' options.GHH '.mat'], 'cold');
