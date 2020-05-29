@@ -3,7 +3,7 @@ dbstop if error
 
 %% Options
 options.Nnewt       = 50;           % Maximum number of Newton steps
-options.Nbackw      = 100;          % Maximum number of backward iteration steps
+options.Nbackw      = 150;          % Maximum number of backward iteration steps
 options.itermaxL    = 10000;
 options.tolL        = 1e-10;
 options.tolc        = 1e-5;         % Tolerance on policy functions
@@ -21,7 +21,7 @@ options.burnin      = 1000;          % Number of first periods to ignore in the 
 options.GHH         = 'N';
 
 %% Statespace parameters
-glob.n          = [15, 12, 3];      % Number of nodes in each dimension
+glob.n          = [17, 15, 3];      % Number of nodes in each dimension
 glob.nf         = [30, 30, 10];      % Number of nodes in each dimension (fine grids)
 glob.curv       = [0.2, 2.0];       % Curvature for k (1 is no curvature)
 glob.spliorder  = [3, 3, 1];        % Order of splines
@@ -35,18 +35,18 @@ glob.plb        = 0.001;            % Lower bound on probability of iid shocks t
 glob.Ne2        = 200;              % # of approx nodes of AR(1) iid shock in Approx of Q
 
 %% Full Ramsey statespace parameters
-glob.n_FR           = [12, 8, 4, 3];      % Number of nodes in each dimension
-glob.n_FR_old       = [12, 8, 4, 3];      % Number of nodes in each dimension
+glob.n_FR           = [13, 12, 4, 3];      % Number of nodes in each dimension
+glob.n_FR_old       = [13, 12, 4, 3];      % Number of nodes in each dimension
 glob.nf_FR          = [7, 7, 3, 3];      % Number of nodes in each dimension (fine grids)
-glob.curv_FR        = [0.2, 2.5, 1.0];       % Curvature for k (1 is no curvature)
+glob.curv_FR        = [0.3, 5.5, 1.2];       % Curvature for k (1 is no curvature)
 glob.spliorder_FR   = [2, 2, 2, 1];        % Order of splines
 
 glob.kmin_FR        = 1.0;              % Lower bound on capital
-glob.kmax_FR        = 30.0;             % Upper bound on capital
-glob.bmin_FR        = 0.1;             % Lower bound on deposits
-glob.bmax_FR        = 0.7;             % Upper bound on deposits
+glob.kmax_FR        = 25.0;             % Upper bound on capital
+glob.bmin_FR        = 0.0;             % Lower bound on deposits
+glob.bmax_FR        = 0.70;             % Upper bound on deposits
 glob.mumin_FR       = -0.000;             % Upper bound on deposits
-glob.mumax_FR       = 0.003;             % Upper bound on deposits
+glob.mumax_FR       = 0.004;             % Upper bound on deposits
 glob.pzlb_FR        = 0.005;            % Lower bound on probability of z
 glob.Ne1_FR         = 10;               % # of approx nodes of AR(1) iid shock in Expectation
 glob.plb_FR         = 0.001;            % Lower bound on probability of iid shocks to AR(1) process, upper bound is 1-plb
@@ -63,7 +63,7 @@ glob.A              = 1 / glob.xi;  % Scale parameter of the capital technology
 glob.lambda         = 0.5;          % Pareto weight on experts
 
 param.gamma         = 2.0;          % Risk aversion
-param.nu            = 199.0;          % Inverse Frisch
+param.nu            = 170.0;          % Inverse Frisch
 param.chi           = 1.0;          % Labor disutility coeff
 param.alpha         = 0.36;         % Capital share
 param.delta         = 0.025;        % Capital depreciation

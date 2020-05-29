@@ -1,4 +1,5 @@
-function [param, glob] = setup_FR(param, glob, options)
+function [param, glob_FR] = setup_FR(param, glob, options)
+glob_FR                 = glob;
 
 %% State space for aggregate productivity
 Nz                  = glob.n_FR(4);                                            % Number of nodes for z
@@ -15,12 +16,22 @@ zgrid0                  = zgrid;
 Nk              = glob.n_FR(1);                                                % Number of nodes for k
 curv            = glob.curv_FR(1);
 kgrid           = nodeunif(Nk, glob.kmin_FR .^ curv, glob.kmax_FR .^ curv) .^ (1 / curv);     % Adds curvature
+
+% add extra points
+% kgrid           = sort([kgrid; (kgrid(Nk-4:Nk) + kgrid(Nk-5:Nk-1)) / 2]);
+
+% extragrid       = nodeunif(5, ((glob.kmin_FR + glob.kmax_FR) / 2) .^ 5.0, (glob.kmax_FR - 0.5) .^ 5.0) .^ (1 / 5.0);     % Adds curvature
+% kgrid           = sort([kgrid; extragrid]);
+% Nk              = Nk + 5;
+% glob_FR.n_FR(1) = Nk;
+
 kgrid0          = kgrid;                                                    % Save for computing basis matrices
 
 %% State space for endogenous variable B
 Nb              = glob.n_FR(2);                                                % Number of nodes for k
 curv            = glob.curv_FR(2);
 bgrid           = nodeunif(Nb, glob.bmin_FR .^ curv, glob.bmax_FR .^ curv) .^ (1 / curv);    % Adds curvature
+
 bgrid0          = bgrid;                                                    % Save for computing basis matrices
 
 %% State space for endogenous variable mu
@@ -60,8 +71,8 @@ gfun            = @(z,e) max(min(exp(glob.rhoz * log(z) + e), max(zgrid)), min(z
 g               = gfun(kron(s(:, 4), iNe),kron(iNs, e));                    % Compute gfun for all combinations of z and e
 Phi             = funbas(fspace, [kron(s(:, 1:3), iNe), g]);                % For each possible state (s',z') tomorrow
 Ikronw          = kron(eye(Ns), w');                                        % Prob matrix
-glob.Emat       = Ikronw * Phi;                                             % Expectation of basis over all Ne points
-glob.Ematsp     = sparse(glob.Emat);                                        % Create a sparse version
+glob_FR.Emat       = Ikronw * Phi;                                             % Expectation of basis over all Ne points
+glob_FR.Ematsp     = sparse(glob_FR.Emat);                                        % Create a sparse version
 
 %% Construct fine grid for histogram
 % kgridf          = nodeunif(glob.nf(1), glob.kmin .^ glob.curv(1), glob.kmax .^ glob.curv(1)) .^ (1/glob.curv(1));
@@ -79,12 +90,12 @@ Nzf             = size(zgridf, 1);
 sf              = gridmake(kgridf, bgridf, mugridf, zgridf);
 Nsf             = size(sf, 1);
 
-glob.kgridf     = kgridf;
-glob.bgridf     = bgridf;
-glob.mugridf    = mugridf;
-glob.zgridf     = zgridf;
-glob.sf         = sf;
-glob.Nsf        = Nsf;
+glob_FR.kgridf     = kgridf;
+glob_FR.bgridf     = bgridf;
+glob_FR.mugridf    = mugridf;
+glob_FR.zgridf     = zgridf;
+glob_FR.sf         = sf;
+glob_FR.Nsf        = Nsf;
 
 %% Compute QZ matrix for approximation of stationary distribution
 Ne              = glob.Ne2_FR;
@@ -101,41 +112,41 @@ for i = 1:Ne
     QZ          = QZ + w(i) * QZi;                            % Weight by prob w(i) and add
     P           = P  + w(i) * funbas(fspaceZ, gfun(zgridf, e(i))); % Compute the same thing as above but only for z-states
 end
-glob.QZ         = QZ;
+glob_FR.QZ         = QZ;
 % For plotting
 Psszf           = P ^ 1000;
 Psszf           = Psszf(1,:)';
-glob.Psszf      = Psszf;                                    % Stat dist for z
+glob_FR.Psszf      = Psszf;                                    % Stat dist for z
 
 %% Create one time only basis matrices
-glob.Phi_Z      = splibas(zgrid0, 0, glob.spliorder_FR(4), s(:, 4));           % Used in Newton computing expected values
-glob.Phi_Zf     = splibas(zgrid0, 0, glob.spliorder_FR(4), sf(:,4)); 
+glob_FR.Phi_Z      = splibas(zgrid0, 0, glob.spliorder_FR(4), s(:, 4));           % Used in Newton computing expected values
+glob_FR.Phi_Zf     = splibas(zgrid0, 0, glob.spliorder_FR(4), sf(:,4)); 
 Phi_K           = splibas(kgrid0, 0, glob.spliorder_FR(1), s(:, 1));
 Phi_B           = splibas(bgrid0, 0, glob.spliorder_FR(2), s(:, 2));
 Phi_mu          = splibas(mugrid0, 0, glob.spliorder_FR(3), s(:, 3));
-glob.Phi        = dprod(glob.Phi_Z, dprod(Phi_mu, dprod(Phi_B, Phi_K)));                   % Used in Newton updating of c
-glob.Phisp      = sparse(glob.Phi);                                         % Create a sparse version (doesn't seem too helpful)
-[glob.Phiu, glob.Phil]  = lu(glob.Phisp);
-glob.Phiinv     = inv(glob.Phi);
-glob.basiscast  = glob.Phiinv * glob.Emat * glob.Phiinv;
+glob_FR.Phi        = dprod(glob_FR.Phi_Z, dprod(Phi_mu, dprod(Phi_B, Phi_K)));                   % Used in Newton updating of c
+glob_FR.Phisp      = sparse(glob_FR.Phi);                                         % Create a sparse version (doesn't seem too helpful)
+[glob_FR.Phiu, glob_FR.Phil]  = lu(glob_FR.Phisp);
+glob_FR.Phiinv     = inv(glob_FR.Phi);
+glob_FR.basiscast  = glob_FR.Phiinv * glob_FR.Emat * glob_FR.Phiinv;
 
 %% Declare additional global variables
-glob.kgrid0     = kgrid0;
-glob.kgrid      = kgrid;
-glob.bgrid0     = bgrid0;
-glob.bgrid      = bgrid;
-glob.mugrid0    = mugrid0;
-glob.mugrid     = mugrid;
-glob.zgrid0     = zgrid0;
-glob.zgrid      = zgrid;
-glob.P          = P;
-glob.Pssz       = Pssz;
-glob.Nz         = Nz;
-glob.Nk         = Nk;
-glob.Nb         = Nb;
-glob.Nmu        = Nmu;
-glob.fspace     = fspace;
-glob.s          = s;
-glob.Ns         = Ns;
+glob_FR.kgrid0     = kgrid0;
+glob_FR.kgrid      = kgrid;
+glob_FR.bgrid0     = bgrid0;
+glob_FR.bgrid      = bgrid;
+glob_FR.mugrid0    = mugrid0;
+glob_FR.mugrid     = mugrid;
+glob_FR.zgrid0     = zgrid0;
+glob_FR.zgrid      = zgrid;
+glob_FR.P          = P;
+glob_FR.Pssz       = Pssz;
+glob_FR.Nz         = Nz;
+glob_FR.Nk         = Nk;
+glob_FR.Nb         = Nb;
+glob_FR.Nmu        = Nmu;
+glob_FR.fspace     = fspace;
+glob_FR.s          = s;
+glob_FR.Ns         = Ns;
 %__________________________________________________________________________
 end
