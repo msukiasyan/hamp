@@ -7,7 +7,13 @@ Phiinv          = glob.Phiinv;
 Phiu            = glob.Phiu;
 Phil            = glob.Phil;
 basiscast       = glob.basiscast;
-K               = glob.s(:, 1);
+if options.disaster == 'Y'
+    zind            = kron((1:glob.Nz)', ones(glob.Nk * glob.Nb, 1));
+    qual_shock      = (glob.dis_qual * (zind == 1) + 1 * (zind ~= 1));
+else
+    qual_shock      = ones(ns, 1);
+end
+K               = s(:, 1) .* qual_shock;
 B               = min(glob.s(:, 1) .* glob.s(:, 2) - glob.transf, glob.bound_pol * glob.s(:, 1));
 Z               = glob.s(:, 3);
 % Unpack
@@ -28,10 +34,11 @@ I               = Y - c_b - c_w;
 q               = 1 ./ cap_prod_prime(I ./ K, param, glob, options);
 Kp              = K .* (cap_prod(I ./ K, param, glob, options) + 1 - param.delta);
 mpk             = production_k(Z, K, L, param, glob, options);
-Bp              = r .* (B + c_b + q .* Kp - mpk .* K - (1 - param.delta) * q .* K);
+Pi              = cap_prod(I ./ K, param, glob, options) .* q - I ./ K;
+Bp              = r .* (B + c_b + q .* Kp - mpk .* K - (1 - param.delta) * q .* K - Pi .* K);
 mu_w            = utility_c(c_w, L, param, glob, options);
 mu_b            = utility_c(c_b, 0, param, glob, options);
-mu_bprod        = mu_b .* (mpk + (1 - param.delta) * q);
+mu_bprod        = mu_b .* (mpk + (1 - param.delta) * q + Pi) .* qual_shock;
 
 % Enforce bounds
 % Kp              = min(max(Kp, glob. kmin), glob.kmax);
@@ -56,9 +63,9 @@ Emu_wp          = Phi_KBZp * PhiEmu_w;                                   % Evalu
 %% Compute residuals
 res                 = zeros(3 * ns, 1);
 res(1:ns)           = (c_w) - utility_c_inv(glob.beta_w * r .* Emu_wp, L, param, glob, options);                     % Euler equation for workers
-res(ns+1:2*ns)      = (c_b) - utility_c_inv(glob.beta_b * r .* Emu_bp, zeros(ns, 1), param, glob, options);                     % Euler equation for bankers
+res(ns+1:2*ns)      = (c_b) - utility_c_inv(glob.beta_b * r ./ (1 - glob.dep_tax) .* Emu_bp, zeros(ns, 1), param, glob, options);                     % Euler equation for bankers
 res(2*ns+1:3*ns)    = utility_c_inv(Emu_bprodp, zeros(ns, 1), param, glob, options) - ...
-                            utility_c_inv(Emu_bp .* q .* r, zeros(ns, 1), param, glob, options);                        % Arbitrage
+                            utility_c_inv(Emu_bp .* q .* r ./ (1 - glob.dep_tax), zeros(ns, 1), param, glob, options);                        % Arbitrage
 
 %% Compute the jacobian if requested
 jac             = [];
@@ -88,10 +95,14 @@ if (nargout == 2)
     mpk_c_b         = production_kl(Z, K, L, param, glob, options) .* L_c_b;
     mpk_r           = production_kl(Z, K, L, param, glob, options) .* L_r;
     
-    Bp_c_w          = r .* (q_c_w .* Kp + q .* Kp_c_w - mpk_c_w .* K - (1 - param.delta) * q_c_w .* K);
-    Bp_c_b          = r .* (ones(ns, 1) + q_c_b .* Kp + q .* Kp_c_b - mpk_c_b .* K - (1 - param.delta) * q_c_b .* K);
-    Bp_r            = ones(ns, 1) .* (B + c_b + q .* Kp - mpk .* K - (1 - param.delta) * q .* K) + ...
-                        r .* (q_r .* Kp + q .* Kp_r - mpk_r .* K - (1 - param.delta) * q_r .* K);
+    Pi_c_w          = cap_prod(I ./ K, param, glob, options) .* q_c_w + cap_prod_prime(I ./ K, param, glob, options) .* I_c_w ./ K .* q - I_c_w ./ K;
+    Pi_c_b          = cap_prod(I ./ K, param, glob, options) .* q_c_b + cap_prod_prime(I ./ K, param, glob, options) .* I_c_b ./ K .* q - I_c_b ./ K;
+    Pi_r            = cap_prod(I ./ K, param, glob, options) .* q_r + cap_prod_prime(I ./ K, param, glob, options) .* I_r ./ K .* q - I_r ./ K;
+    
+    Bp_c_w          = r .* (q_c_w .* Kp + q .* Kp_c_w - mpk_c_w .* K - (1 - param.delta) * q_c_w .* K - Pi_c_w .* K);
+    Bp_c_b          = r .* (ones(ns, 1) + q_c_b .* Kp + q .* Kp_c_b - mpk_c_b .* K - (1 - param.delta) * q_c_b .* K - Pi_c_b .* K);
+    Bp_r            = ones(ns, 1) .* (B + c_b + q .* Kp - mpk .* K - (1 - param.delta) * q .* K - Pi .* K) + ...
+                        r .* (q_r .* Kp + q .* Kp_r - mpk_r .* K - (1 - param.delta) * q_r .* K - Pi_r .* K);
                     
     %-------------
     Bp_c_w          = Bp_c_w ./ Kp - Bp ./ (Kp .^2) .* Kp_c_w;
@@ -107,9 +118,9 @@ if (nargout == 2)
     mu_b_c_b        = utility_cc(c_b, 0, param, glob, options) .* ones(ns, 1);
     mu_b_r          = zeros(ns, 1);
     
-    mu_bprod_c_w    = mu_b_c_w .* (mpk + (1 - param.delta) * q) + mu_b .* (mpk_c_w + (1 - param.delta) * q_c_w);
-    mu_bprod_c_b    = mu_b_c_b .* (mpk + (1 - param.delta) * q) + mu_b .* (mpk_c_b + (1 - param.delta) * q_c_b);
-    mu_bprod_r      = mu_b_r .* (mpk + (1 - param.delta) * q) + mu_b .* (mpk_r + (1 - param.delta) * q_r);
+    mu_bprod_c_w    = mu_b_c_w .* (mpk + (1 - param.delta) * q + Pi) .* qual_shock + mu_b .* (mpk_c_w + (1 - param.delta) * q_c_w + Pi_c_w) .* qual_shock;
+    mu_bprod_c_b    = mu_b_c_b .* (mpk + (1 - param.delta) * q + Pi) .* qual_shock + mu_b .* (mpk_c_b + (1 - param.delta) * q_c_b + Pi_c_b) .* qual_shock;
+    mu_bprod_r      = mu_b_r .* (mpk + (1 - param.delta) * q + Pi) .* qual_shock + mu_b .* (mpk_r + (1 - param.delta) * q_r + Pi_r) .* qual_shock;
     
     % Create derivative matrices
     Phi_Kp_der      = splibas(glob.kgrid0, 0, glob.spliorder(1), Kp, 1);

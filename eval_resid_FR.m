@@ -41,7 +41,7 @@ gam             = -((production_l(Z, K, L, param, glob, options) .* ((1 - glob.l
     (-mu) .* B .* utility_cc(c_w, L, param, glob, options)) + (1 - glob.lambda) * utility_l(c_w, L, param, glob, options) - ...
     (-mu) .* B .* utility_cl(c_w, L, param, glob, options)) ./ (-H_l - production_l(Z, K, L, param, glob, options) .* H_c));
 c_b             = utility_c_inv(((1 - glob.lambda) * utility_c(c_w, L, param, glob, options) - ...
-    (-mu) .* B .* utility_cc(c_w, L, param, glob, options) + gam .* H_c) / glob.lambda, 0, param, glob, options);
+    (-mu) .* B .* utility_cc(c_w, L, param, glob, options) + (-gam) .* H_c) / glob.lambda, 0, param, glob, options);
 Y               = production(Z, K, L, param, glob, options);
 I               = Y - c_b - c_w;
 q               = 1 ./ cap_prod_prime(I ./ K, param, glob, options);
@@ -69,7 +69,7 @@ Pi              = cap_prod(I ./ K, param, glob, options) .* q - I ./ K;
 mu_w            = utility_c(c_w, L, param, glob, options);
 mu_b            = utility_c(c_b, 0, param, glob, options);
 mu_bprod        = mu_b .* (mpk + (1 - param.delta) * q + Pi);
-mu_wgam         = mu_w .* gam;
+mu_wgam         = mu_w .* (-gam);
 
 % Enforce bounds
 % Kp              = min(max(Kp, glob. kmin), glob.kmax);
@@ -100,7 +100,7 @@ res(1:ns)           = (B - c_w) - ...                                % LOM for d
     utility_l(c_w, L, param, glob, options) .* L ./ utility_c(c_w, L, param, glob, options) ...
     - glob.beta * Bp .* Emu_wp ./ utility_c(c_w, L, param, glob, options);
 res(ns+1:2*ns)      = (c_b) - utility_c_inv(glob.beta * Emu_bprodp ./ q, zeros(ns, 1), param, glob, options);   % Euler equation for bankers
-res(2*ns+1:3*ns)    = (Emu_wgamp) - (gam .* Emu_wp);                                                                % Twisted martingale
+res(2*ns+1:3*ns)    = (Emu_wgamp) - ((-gam) .* Emu_wp);                                                                % Twisted martingale
 % res(3*ns+1:4*ns)    = (c_b) - utility_c_inv(((1 - glob.lambda) * utility_c(c_w, L, param, glob, options) - ...
 %     (-mu) .* B .* utility_cc(c_w, L, param, glob, options) + gam .* H_c) / glob.lambda, 0, param, glob, options); 
 
@@ -145,13 +145,13 @@ if (nargout >= 2)
     gam_Bp          = zeros(ns, 1);
     
     c_b_c_w         = utility_c_inv_prime(((1 - glob.lambda) * utility_c(c_w, L, param, glob, options) - ...
-        (-mu) .* B .* utility_cc(c_w, L, param, glob, options) + gam .* H_c) / glob.lambda, 0, param, glob, options) .* ...
+        (-mu) .* B .* utility_cc(c_w, L, param, glob, options) + (-gam) .* H_c) / glob.lambda, 0, param, glob, options) .* ...
         (((1 - glob.lambda) * utility_cc(c_w, L, param, glob, options) - ...
-        (-mu) .* B .* utility_ccc(c_w, L, param, glob, options) + gam_c_w .* H_c + gam .* H_c_c_w) / glob.lambda);
+        (-mu) .* B .* utility_ccc(c_w, L, param, glob, options) + (-gam_c_w) .* H_c + (-gam) .* H_c_c_w) / glob.lambda);
     c_b_L           = utility_c_inv_prime(((1 - glob.lambda) * utility_c(c_w, L, param, glob, options) - ...
-        (-mu) .* B .* utility_cc(c_w, L, param, glob, options) + gam .* H_c) / glob.lambda, 0, param, glob, options) .* ...
+        (-mu) .* B .* utility_cc(c_w, L, param, glob, options) + (-gam) .* H_c) / glob.lambda, 0, param, glob, options) .* ...
         (((1 - glob.lambda) * utility_cl(c_w, L, param, glob, options) - ...
-        (-mu) .* B .* utility_ccl(c_w, L, param, glob, options) + gam_L .* H_c + gam .* H_c_L) / glob.lambda);
+        (-mu) .* B .* utility_ccl(c_w, L, param, glob, options) + (-gam_L) .* H_c + (-gam) .* H_c_L) / glob.lambda);
     c_b_Bp          = zeros(ns, 1);
     
     Y_c_w           = zeros(ns, 1);
@@ -244,10 +244,10 @@ if (nargout >= 2)
     mu_bprod_L      = mu_b_L .* (mpk + (1 - param.delta) * q + Pi) + mu_b .* (mpk_L + (1 - param.delta) * q_L + Pi_L);
     mu_bprod_Bp     = mu_b_Bp .* (mpk + (1 - param.delta) * q + Pi) + mu_b .* (mpk_Bp + (1 - param.delta) * q_Bp + Pi_Bp);
     
-    mu_wgam_c_w     = mu_w_c_w .* gam + mu_w .* gam_c_w;
+    mu_wgam_c_w     = mu_w_c_w .* (-gam) + mu_w .* (-gam_c_w);
 %     mu_wgam_c_b     = mu_w_c_b .* gam + mu_w .* gam_c_b;
-    mu_wgam_L       = mu_w_L .* gam + mu_w .* gam_L;
-    mu_wgam_Bp      = mu_w_Bp .* gam + mu_w .* gam_Bp;
+    mu_wgam_L       = mu_w_L .* (-gam) + mu_w .* (-gam_L);
+    mu_wgam_Bp      = mu_w_Bp .* (-gam) + mu_w .* (-gam_Bp);
     
    
     Emu_bprodp_c_w  = Kder_bprod * diagKp_c_w + Bder_bprod * diagBp_c_w + muder_bprod * diagmup_c_w + ...
@@ -282,9 +282,9 @@ if (nargout >= 2)
     % mu_prime1       = spdiags(utility_c_inv_prime(glob.beta_w * r .* Emu_wp, L, param, glob, options), 0, ns, ns);
     mu_prime2       = spdiags(utility_c_inv_prime(glob.beta * Emu_bprodp ./ q, zeros(ns, 1), param, glob, options), 0, ns, ns);
     mu_prime4       = spdiags(utility_c_inv_prime(((1 - glob.lambda) * utility_c(c_w, L, param, glob, options) - ...
-            (-mu) .* B .* utility_cc(c_w, L, param, glob, options) + gam .* H_c) / glob.lambda, 0, param, glob, options), 0, ns, ns);
+            (-mu) .* B .* utility_cc(c_w, L, param, glob, options) + (-gam) .* H_c) / glob.lambda, 0, param, glob, options), 0, ns, ns);
     mu_prime31      = spdiags(utility_c_inv_prime(Emu_wgamp, 0, param, glob, options), 0, ns, ns);
-    mu_prime32      = spdiags(utility_c_inv_prime(gam .* Emu_wp, 0, param, glob, options), 0, ns, ns);
+    mu_prime32      = spdiags(utility_c_inv_prime((-gam) .* Emu_wp, 0, param, glob, options), 0, ns, ns);
     
 %     res1_c_w        = spdiags((-1) .* utility_c(c_w, L, param, glob, options) + ...
 %         (B - c_w) .* utility_cc(c_w, L, param, glob, options) - ...
@@ -321,10 +321,10 @@ if (nargout >= 2)
     res2_Bp         = spdiags(c_b_Bp, 0, ns, ns) - mu_prime2 * glob.beta * ...
         (Emu_bprodp_Bp * spdiags(1 ./ q, 0, ns, ns) + spdiags(-q_Bp .* Emu_bprodp ./ (q .^ 2), 0, ns, ns));
     
-    res3_c_w        = Emu_wgamp_c_w - (spdiags(gam, 0, ns, ns) * Emu_wp_c_w + spdiags(gam_c_w .* Emu_wp, 0, ns, ns));
+    res3_c_w        = Emu_wgamp_c_w - (spdiags((-gam), 0, ns, ns) * Emu_wp_c_w + spdiags((-gam_c_w) .* Emu_wp, 0, ns, ns));
 %     res3_c_b        = Emu_wgamp_c_b - (spdiags(gam, 0, ns, ns) * Emu_wp_c_b + spdiags(gam_c_b .* Emu_wp, 0, ns, ns));
-    res3_L          = Emu_wgamp_L - (spdiags(gam, 0, ns, ns) * Emu_wp_L + spdiags(gam_L .* Emu_wp, 0, ns, ns));
-    res3_Bp         = Emu_wgamp_Bp - (spdiags(gam, 0, ns, ns) * Emu_wp_Bp + spdiags(gam_Bp .* Emu_wp, 0, ns, ns));
+    res3_L          = Emu_wgamp_L - (spdiags((-gam), 0, ns, ns) * Emu_wp_L + spdiags((-gam_L) .* Emu_wp, 0, ns, ns));
+    res3_Bp         = Emu_wgamp_Bp - (spdiags((-gam), 0, ns, ns) * Emu_wp_Bp + spdiags((-gam_Bp) .* Emu_wp, 0, ns, ns));
     
 %     res4_c_w        = mu_prime4 * spdiags(- ( ((1 - glob.lambda) * utility_cc(c_w, L, param, glob, options) - ...
 %         (-mu) .* B .* utility_ccc(c_w, L, param, glob, options) + gam .* H_c_c_w + gam_c_w .* H_c) / glob.lambda ), 0, ns, ns);

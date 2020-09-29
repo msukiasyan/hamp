@@ -5,7 +5,10 @@ s               = glob.s;
 kgrid           = glob.kgrid;
 bgrid           = glob.bgrid;
 ns              = size(s, 1);
-Phi             = glob.Phisp;
+Phi             = glob.Phi;
+Phil            = glob.Phil;
+Phiu            = glob.Phiu;
+Phif            = glob.Phif;
 
 %% Initialise guesses
 switch options.guess
@@ -51,12 +54,24 @@ if strcmp(options.print, 'Y')
     fprintf('~~~~~ Backward iterations ~~~~~\n');
 end
 eq.flag.cconv   = false;
+cnum        = [Phi * cold(1:ns); Phi * cold(ns+1:2*ns); Phi * cold(2*ns+1:3*ns)];
 for citer = 1:options.Nbackw
     % Compute current period equilibrium given the future policies
-    c               = fsolve(@(x) eval_resid_backward(cold, x, param, glob, options), cold, options.optim);
+    cnumnew         = fsolve(@(x) eval_resid_backward(cnum, x, param, glob, options), cnum, options.optim);
+    if options.lev_cap == 'Y'
+        [~, ~, ~, ~, ~, ~, ~, q, Kp, Bp, ~]     = eval_resid_backward(cnum, cnumnew, param, glob, options);
+        mask        = Bp - param.chi_lev * q .* Kp >= 0;
+        if sum(mask) > 0
+            c_wm        = cnumnew(1:ns) * 1.1;
+            c_bm        = cnumnew(ns+1:2*ns) * 1.2;
+            rm          = cnumnew(2*ns+1:3*ns) * 0.95;
+            cmask       = fsolve(@(x) eval_resid_backward(cnum, x, param, glob, options, glob.s(mask, :), 'Y', mask), [c_wm(mask);c_bm(mask);rm(mask)], options.optim);
+            cnumnew([mask;mask;mask;])      = cmask;
+        end
+    end
     % Compute distances and update
-    dc              = norm(c - cold) / norm(cold);
-    cold            = c;
+    dc              = norm(cnumnew - cnum) / norm(cnum);
+    cnum            = cnumnew;
     if strcmp(options.print, 'Y')
         fprintf('%i\tdc = %1.2e\tTime: %3.2f\n', citer, dc, toc(totaltic));
         fprintf('norm: %3.2e\n', norm(eval_resid(cold, param, glob, options)));
@@ -69,6 +84,7 @@ for citer = 1:options.Nbackw
         break
     end
 end
+cold        = [Phi \ cnum(1:ns); Phi \ cnum(ns+1:2*ns); Phi \ cnum(2*ns+1:3*ns)];
 % Try to improve solving the whole system directly
 cold        = fsolve(@(x) eval_resid(x, param, glob, options), cold, options.optim);
 
@@ -78,6 +94,10 @@ end
 
 [~, ~, c_w, c_b, L, Y, I, q, Kp, Bp, r]     = eval_resid(cold, param, glob, options);     % Get eqbm objects
 
+%% Compute extra variables
+net_worth       = q .* Kp - Bp ./ r + c_b;
+lev             = q .* Kp ./ net_worth;
+
 
 %% Solve again on a finer grid for k
 % glob.Phi_Z      = glob.Phi_Zf; 
@@ -85,10 +105,18 @@ end
 %% Compute stationary distribution
 [~, ~, c_w, c_b, L, Y, I, q, Kp, Bp, r]   = eval_resid(cold, param, glob, options);
 Kp              = min(Kp, glob.kmax);                                 % Restrict k's to not exceed the grid
-Bp              = min(Bp, Kp * glob.bmax);                                 % Restrict k's to not exceed the grid
-fspaceergk      = fundef({'spli', glob.kgrid, 0, 1},...                      % Linear approximation
-                        {'spli', glob.bgrid, 0, 1});                     
-QK              = funbas(fspaceergk, [Kp, Bp ./ Kp]);                                % Get basis
+Bp              = max(min(Bp, Kp * glob.bmax), glob.bmin);
+
+% Approximate on the finer grid
+cKp             = funfitxy(glob.fspace, glob.s, Kp);
+cBp             = funfitxy(glob.fspace, glob.s, Bp);
+X               = funeval([cKp, cBp], glob.fspace, glob.sf);
+Kpf             = X(:, 1);
+Bpf             = X(:, 2);
+
+fspaceergk      = fundef({'spli', glob.kgridf, 0, 1},...                      % Linear approximation
+                        {'spli', glob.bgridf, 0, 1});
+QK              = funbas(fspaceergk, [Kpf, Bpf ./ Kpf]);
 QZ              = glob.QZ;
 Q               = dprod(QZ, QK);                                         % Full transition matrix
 
@@ -96,6 +124,7 @@ Q               = dprod(QZ, QK);                                         % Full 
 dd              = diag(dd);
 Lv              = vv(:,dd==max(dd));
 Ldist           = Lv/sum(Lv);
+
 % Ldist           = ones(size(Q, 1), 1);                                    % Start from uniform dist
 % Ldist           = Ldist / sum(Ldist);
 % 
@@ -110,71 +139,48 @@ Ldist           = Lv/sum(Lv);
 %     end
 %     Ldist   = Lnew;
 % end
+
+%% Approximate solution objects on the finer grid in order to compute stats over the ergodic distribution
+cc_w            = Phil \ (Phiu \ c_w);
+cc_b            = Phil \ (Phiu \ c_b);
+cL              = Phil \ (Phiu \ L);
+cY              = Phil \ (Phiu \ Y);
+cI              = Phil \ (Phiu \ I);
+cq              = Phil \ (Phiu \ q);
+cr              = Phil \ (Phiu \ r);
+
+c_wf            = Phif * cc_w;
+c_bf            = Phif * cc_b;
+Lf              = Phif * cL;
+Yf              = Phif * cY;
+If              = Phif * cI;
+qf              = Phif * cq;
+rf              = Phif * cr;
  
 %% Pack-up output
 
-eq.c_w      = c_w;
-eq.c_b      = c_b;
-eq.L        = L;
-eq.Y        = Y;
-eq.I        = I;
-eq.q        = q;
-eq.Kp       = Kp;
-eq.Bp       = Bp;
-eq.r        = r;
-eq.c        = cold;
-eq.dist     = Ldist;
+eq.c_w          = c_w;
+eq.c_b          = c_b;
+eq.L            = L;
+eq.Y            = Y;
+eq.I            = I;
+eq.q            = q;
+eq.Kp           = Kp;
+eq.Bp           = Bp;
+eq.r            = r;
+eq.c            = cold;
+eq.dist         = Ldist;
+eq.net_worth    = net_worth;
+eq.lev          = lev;
+eq.Kpf          = Kpf;
+eq.Bpf          = Bpf;
+eq.c_wf         = c_wf;
+eq.c_bf         = c_bf;
+eq.Lf           = Lf;
+eq.Yf           = Yf;
+eq.If           = If;
+eq.qf           = qf;
+eq.rf           = rf;
 
-%% Plot
-c_w_arr     = reshape(c_w, glob.Nk, glob.Nb, glob.Nz);
-c_b_arr     = reshape(c_b, glob.Nk, glob.Nb, glob.Nz);
-r_arr       = reshape(r, glob.Nk, glob.Nb, glob.Nz);
-Bp_arr      = reshape(Bp, glob.Nk, glob.Nb, glob.Nz);
-Kp_arr      = reshape(Kp, glob.Nk, glob.Nb, glob.Nz);
-q_arr       = reshape(q, glob.Nk, glob.Nb, glob.Nz);
-L_arr       = reshape(L, glob.Nk, glob.Nb, glob.Nz);
-I_arr       = reshape(I, glob.Nk, glob.Nb, glob.Nz);
-w           = production_l(s(:, 3), s(:, 1), L, param, glob, options);
-w_arr       = reshape(w, glob.Nk, glob.Nb, glob.Nz);
-
-
-figure;
-subplot(1, 2, 1);
-plot(glob.bgrid, q_arr(8, :, 1), glob.bgrid, q_arr(9, :, 1), glob.bgrid, q_arr(10, :, 1), 'LineWidth', 2)
-xlabel('D / K')
-ylabel('q')
-legend(['K = ' num2str(glob.kgrid(8))], ['K = '  num2str(glob.kgrid(9))], ['K = '  num2str(glob.kgrid(10))]);
-title('Capital price, Z = 0.90')
-
-subplot(1, 2, 2);
-plot(glob.bgrid, I_arr(8, :, 1), glob.bgrid, I_arr(9, :, 1), glob.bgrid, I_arr(10, :, 1), 'LineWidth', 2)
-xlabel('D / K')
-ylabel('I')
-legend(['K = ' num2str(glob.kgrid(8))], ['K = '  num2str(glob.kgrid(9))], ['K = '  num2str(glob.kgrid(10))]);
-title('Investment, Z = 0.90')
-
-figure;
-subplot(1, 2, 1);
-plot(glob.bgrid, L_arr(8, :, 1), glob.bgrid, L_arr(9, :, 1), glob.bgrid, L_arr(10, :, 1), 'LineWidth', 2)
-xlabel('D / K')
-ylabel('L')
-legend(['K = ' num2str(glob.kgrid(8))], ['K = '  num2str(glob.kgrid(9))], ['K = '  num2str(glob.kgrid(10))]);
-title('Labor, Z = 0.90')
-
-subplot(1, 2, 2);
-plot(glob.bgrid, r_arr(8, :, 1), glob.bgrid, r_arr(9, :, 1), glob.bgrid, r_arr(10, :, 1), 'LineWidth', 2)
-xlabel('D / K')
-ylabel('r')
-legend(['K = ' num2str(glob.kgrid(8))], ['K = '  num2str(glob.kgrid(9))], ['K = '  num2str(glob.kgrid(10))]);
-title('Risk-free rate, Z = 0.90')
-
-
-dist_arr = reshape(Ldist, glob.Nk, glob.Nb, glob.Nz);
-figure;
-surf(glob.kgrid, glob.bgrid, dist_arr(:, :, 1)');
-xlabel('K');
-ylabel('D / K')
-zlabel('Density')
-title('Ergodic distribution, Z = 0.90')
 end
 

@@ -1,4 +1,4 @@
-function reces = find_recessions(sim, param, glob, options)
+function reces = find_recessions(sim, param, glob, options, reces_times)
 %% Unpack
 burnin          = options.burnin + 1;
 expi            = 1;
@@ -16,37 +16,31 @@ levt            = sim.levt(expi, burnin:end)';
 T               = size(Kt, 1);
 
 %% Find recession episodes
-stdB            = std(Bt);
-meanB           = mean(Bt);
+if nargin < 5
+    stdB            = std(Bt);
+    meanB           = mean(Bt);
+    ratt            = Bt ./ Kt;
+    
+    stdrat          = std(ratt);
+    meanrat         = mean(ratt);
 
-Nrec            = 0;
-reces_times     = zeros(T, 1);
+    stdlev          = std(levt);
+    meanlev         = mean(levt);
 
-for t = 41:T-20
-    if Bt(t) < meanB - 2 * stdB && Bt(t - 1) >= meanB - 2 * stdB
-        reces_times(Nrec + 1)   = t;
-        Nrec    = Nrec + 1;
+    Nrec            = 0;
+    reces_times     = zeros(T, 1);
+
+    for t = 41:T-20
+        if levt(t) > meanlev + 2 * stdlev && levt(t - 1) <= meanlev + 2 * stdlev && Zt(t) == glob.zgrid(1)
+        % if ratt(t) > meanrat + 2 * stdrat && ratt(t - 1) <= meanrat + 2 * stdrat && Zt(t) == glob.zgrid(1)
+            reces_times(Nrec + 1)   = t;
+            Nrec    = Nrec + 1;
+        end
     end
+    reces_times     = reces_times(1:Nrec);
 end
-reces_times     = reces_times(1:Nrec);
-% reces_times     = find(Bt < meanB - 2 * stdB);
-% Nrec            = size(reces_times, 1);
-% 
-% recNu           = Nrec;
-% recNl           = 1;
-% 
-% for ri = Nrec:(-1):1
-%     if reces_times(ri) + 20 > T
-%         recNu = ri - 1;
-%     end
-%     if reces_times(ri) - 40 < 1
-%         if reces_times(ri + 1) - 40 >= 1
-%             recNl = ri + 1;
-%         end
-%     end
-% end
-% reces_times     = reces_times(recNl:recNu);
-% Nrec            = size(reces_times, 1);
+
+Nrec            = size(reces_times, 1);
 
 recKt           = zeros(Nrec, 61);
 recBt           = zeros(Nrec, 61);
@@ -85,5 +79,19 @@ Itmean          = mean(recIt, 1);
 qtmean          = mean(recqt, 1);
 rtmean          = mean(recrt, 1);
 levtmean        = mean(reclevt, 1);
+
+%% Pack
+reces.reces_times   = reces_times;
+reces.Ktmean        = Ktmean;
+reces.Btmean        = Btmean;
+reces.Ztmean        = Ztmean;
+reces.c_wtmean      = c_wtmean;
+reces.c_btmean      = c_btmean;
+reces.Ytmean        = Ytmean;
+reces.Ltmean        = Ltmean;
+reces.Itmean        = Itmean;
+reces.qtmean        = qtmean;
+reces.rtmean        = rtmean;
+reces.levtmean      = levtmean;
 
 end

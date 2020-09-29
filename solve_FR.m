@@ -123,15 +123,17 @@ xlabel('D / K');
 ylabel('\tau_l');
 legend(['K = ' num2str(glob.kgrid(8))], ['K = '  num2str(glob.kgrid(9))], ['K = '  num2str(glob.kgrid(10))]);
 title('Implied tax on labor, Z = 0.85, \mu = 0.00');
+grid on;
 
 subplot(1, 2, 2);
 plot(glob.bgrid, implied_tax_lab_arr(8, :, 1, 1) - implied_tax_lab_arr(8, :, 1, 2), ...
-    glob.bgrid, implied_tax_lab_arr(9, :, 1, 1) - implied_tax_lab_arr(9, :, 1, 1), ...
-    glob.bgrid, implied_tax_lab_arr(10, :, 1, 1) - implied_tax_lab_arr(10, :, 1, 1), 'LineWidth', 2);
+    glob.bgrid, implied_tax_lab_arr(9, :, 1, 1) - implied_tax_lab_arr(9, :, 1, 2), ...
+    glob.bgrid, implied_tax_lab_arr(10, :, 1, 1) - implied_tax_lab_arr(10, :, 1, 2), 'LineWidth', 2);
 xlabel('D / K');
-ylabel('I');
+ylabel('\Delta \tau_l');
 legend(['K = ' num2str(glob.kgrid(8))], ['K = '  num2str(glob.kgrid(9))], ['K = '  num2str(glob.kgrid(10))]);
 title('Difference in \tau_l between Z = 0.85 and Z = 1.00, \mu = 0.00');
+grid on;
 
 % r tax
 figure;
@@ -141,15 +143,17 @@ xlabel('D / K');
 ylabel('\tau_r');
 legend(['K = ' num2str(glob.kgrid(8))], ['K = '  num2str(glob.kgrid(9))], ['K = '  num2str(glob.kgrid(10))]);
 title('Implied tax on deposits, Z = 0.85, \mu = 0.00');
+grid on;
 
 subplot(1, 2, 2);
 plot(glob.bgrid, implied_tax_r_arr(8, :, 1, 1) - implied_tax_r_arr(8, :, 1, 2), ...
-    glob.bgrid, implied_tax_r_arr(9, :, 1, 1) - implied_tax_r_arr(9, :, 1, 1), ...
-    glob.bgrid, implied_tax_r_arr(10, :, 1, 1) - implied_tax_r_arr(10, :, 1, 1), 'LineWidth', 2);
+    glob.bgrid, implied_tax_r_arr(9, :, 1, 1) - implied_tax_r_arr(9, :, 1, 2), ...
+    glob.bgrid, implied_tax_r_arr(10, :, 1, 1) - implied_tax_r_arr(10, :, 1, 2), 'LineWidth', 2);
 xlabel('D / K');
-ylabel('I');
+ylabel('\Delta \tau_r');
 legend(['K = ' num2str(glob.kgrid(8))], ['K = '  num2str(glob.kgrid(9))], ['K = '  num2str(glob.kgrid(10))]);
 title('Difference in \tau_d between Z = 0.85 and Z = 1.00, \mu = 0.00');
+grid on;
 
 if strcmp(options.save_eqbm_FR, 'Y')
     save(['FR_cresult' options.GHH '.mat'], 'cold');
@@ -206,56 +210,5 @@ sol.Bp       = Bp;
 sol.c        = cold;
 sol.dist     = Ldist;
 
-%% Plot
-c_w_arr     = reshape(c_w, glob.Nk, glob.Nb, glob.Nz);
-c_b_arr     = reshape(c_b, glob.Nk, glob.Nb, glob.Nz);
-r_arr       = reshape(r, glob.Nk, glob.Nb, glob.Nz);
-Bp_arr      = reshape(Bp, glob.Nk, glob.Nb, glob.Nz);
-Kp_arr      = reshape(Kp, glob.Nk, glob.Nb, glob.Nz);
-q_arr       = reshape(q, glob.Nk, glob.Nb, glob.Nz);
-L_arr       = reshape(L, glob.Nk, glob.Nb, glob.Nz);
-I_arr       = reshape(I, glob.Nk, glob.Nb, glob.Nz);
-w           = production_l(s(:, 3), s(:, 1), L, param, glob, options);
-w_arr       = reshape(w, glob.Nk, glob.Nb, glob.Nz);
-
-
-figure;
-subplot(1, 2, 1);
-plot(glob.bgrid, q_arr(8, :, 1), glob.bgrid, q_arr(9, :, 1), glob.bgrid, q_arr(10, :, 1), 'LineWidth', 2)
-xlabel('D / K')
-ylabel('q')
-legend(['K = ' num2str(glob.kgrid(8))], ['K = '  num2str(glob.kgrid(9))], ['K = '  num2str(glob.kgrid(10))]);
-title('Capital price, Z = 0.90')
-
-subplot(1, 2, 2);
-plot(glob.bgrid, I_arr(8, :, 1), glob.bgrid, I_arr(9, :, 1), glob.bgrid, I_arr(10, :, 1), 'LineWidth', 2)
-xlabel('D / K')
-ylabel('I')
-legend(['K = ' num2str(glob.kgrid(8))], ['K = '  num2str(glob.kgrid(9))], ['K = '  num2str(glob.kgrid(10))]);
-title('Investment, Z = 0.90')
-
-figure;
-subplot(1, 2, 1);
-plot(glob.bgrid, L_arr(8, :, 1), glob.bgrid, L_arr(9, :, 1), glob.bgrid, L_arr(10, :, 1), 'LineWidth', 2)
-xlabel('D / K')
-ylabel('L')
-legend(['K = ' num2str(glob.kgrid(8))], ['K = '  num2str(glob.kgrid(9))], ['K = '  num2str(glob.kgrid(10))]);
-title('Labor, Z = 0.90')
-
-subplot(1, 2, 2);
-plot(glob.bgrid, r_arr(8, :, 1), glob.bgrid, r_arr(9, :, 1), glob.bgrid, r_arr(10, :, 1), 'LineWidth', 2)
-xlabel('D / K')
-ylabel('r')
-legend(['K = ' num2str(glob.kgrid(8))], ['K = '  num2str(glob.kgrid(9))], ['K = '  num2str(glob.kgrid(10))]);
-title('Risk-free rate, Z = 0.90')
-
-
-dist_arr = reshape(Ldist, glob.Nk, glob.Nb, glob.Nz);
-figure;
-surf(glob.kgrid, glob.bgrid, dist_arr(:, :, 1)');
-xlabel('K');
-ylabel('D / K')
-zlabel('Density')
-title('Ergodic distribution, Z = 0.90')
 end
 
